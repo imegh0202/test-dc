@@ -12,7 +12,7 @@ from pathlib import Path
 WATCHLIST = [
     ##{"symbol": "TSLA", "above": 220},
     ##{"symbol": "2330", "above": 200},
-    {"symbol": "NVDA", "below": 120},
+    {"symbol": "NVDA", "below": 300},
 ]
 
 CHECK_INTERVAL_SECONDS = 300
