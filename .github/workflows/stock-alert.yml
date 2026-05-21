@@ -22,7 +22,8 @@ jobs:
       - name: Run stock alert bot
         env:
           FINNHUB_API_KEY: ${{ secrets.FINNHUB_API_KEY }}
-          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+          DISCORD_CHANNEL_ID: ${{ secrets.DISCORD_CHANNEL_ID }}
           RUN_ONCE: "true"
           SEND_STARTUP_HEALTHCHECK: "false"
         run: python stock_alert_bot.py
