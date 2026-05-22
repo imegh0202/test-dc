@@ -68,15 +68,12 @@ def fetch_price(symbol: str, api_key: str) -> float:
     return float(price)
 
 
-def send_discord_message(bot_token: str, channel_id: str, content: str) -> None:
+def send_discord_message(webhook_url: str, content: str) -> None:
     payload = json.dumps({"content": content}).encode("utf-8")
     request = urllib.request.Request(
-        f"https://discord.com/api/v10/channels/{channel_id}/messages",
+        webhook_url,
         data=payload,
-        headers={
-            "Content-Type": "application/json",
-            "Authorization": f"Bot {bot_token}",
-        },
+        headers={"Content-Type": "application/json"},
         method="POST",
     )
 
@@ -86,28 +83,27 @@ def send_discord_message(bot_token: str, channel_id: str, content: str) -> None:
     except urllib.error.HTTPError as exc:
         if exc.code == 403:
             raise RuntimeError(
-                "Discord bot returned 403 Forbidden. "
-                "Check that the bot is invited to the server and has permission "
-                "to view the channel and send messages."
+                "Discord webhook returned 403 Forbidden. "
+                "The webhook URL is likely invalid, disabled, or leaked. "
+                "Create a new webhook in Discord and keep the full URL private."
             ) from exc
         if exc.code == 401:
             raise RuntimeError(
-                "Discord bot returned 401 Unauthorized. "
-                "Your DISCORD_BOT_TOKEN is invalid or has been regenerated."
+                "Discord webhook returned 401 Unauthorized. "
+                "The webhook URL is not authorized. Create a new webhook and update your secret."
             ) from exc
         if exc.code == 404:
             raise RuntimeError(
-                "Discord bot returned 404 Not Found. "
-                "Your DISCORD_CHANNEL_ID may be wrong, or the bot cannot access that channel."
+                "Discord webhook returned 404 Not Found. "
+                "The webhook URL may be incomplete, deleted, or incorrect."
             ) from exc
         raise
 
 
-def send_startup_healthcheck(bot_token: str, channel_id: str) -> None:
+def send_startup_healthcheck(webhook_url: str) -> None:
     send_discord_message(
-        bot_token,
-        channel_id,
-        "Stock alert bot startup check passed. Discord bot can post to the channel.",
+        webhook_url,
+        "Stock alert bot startup check passed. Webhook can post to the channel.",
     )
 
 
@@ -126,8 +122,7 @@ def check_rule(price: float, rule: dict) -> tuple[bool, str]:
 
 def run_checks(
     finnhub_api_key: str,
-    discord_bot_token: str,
-    discord_channel_id: str,
+    discord_webhook_url: str,
     sent_alerts: set[str],
 ) -> bool:
     print("Checking prices...")
@@ -142,7 +137,7 @@ def run_checks(
             alert_key = f"{symbol}:{rule.get('above')}:{rule.get('below')}"
 
             if triggered and alert_key not in sent_alerts:
-                send_discord_message(discord_bot_token, discord_channel_id, message)
+                send_discord_message(discord_webhook_url, message)
                 sent_alerts.add(alert_key)
                 print(f"Alert sent: {message}")
             elif not triggered and alert_key in sent_alerts:
@@ -168,8 +163,7 @@ def run() -> int:
     load_dotenv()
     try:
         finnhub_api_key = get_env("FINNHUB_API_KEY")
-        discord_bot_token = get_env("DISCORD_BOT_TOKEN")
-        discord_channel_id = get_env("DISCORD_CHANNEL_ID")
+        discord_webhook_url = get_env("DISCORD_WEBHOOK_URL")
     except RuntimeError as exc:
         print(f"Startup failed: {exc}")
         return 1
@@ -179,9 +173,9 @@ def run() -> int:
     sent_alerts = set()
 
     if send_healthcheck:
-        print("Sending Discord bot health check...")
+        print("Sending Discord webhook health check...")
         try:
-            send_startup_healthcheck(discord_bot_token, discord_channel_id)
+            send_startup_healthcheck(discord_webhook_url)
         except RuntimeError as exc:
             print(f"Startup failed: {exc}")
             return 1
@@ -189,18 +183,17 @@ def run() -> int:
             print(f"Startup failed: Discord returned HTTP {exc.code} {exc.reason}.")
             return 1
         except urllib.error.URLError as exc:
-            print(f"Startup failed: could not reach Discord API: {exc.reason}")
+            print(f"Startup failed: could not reach Discord webhook: {exc.reason}")
             return 1
 
-        print("Discord bot health check passed.")
+        print("Discord webhook health check passed.")
     else:
-        print("Skipping startup Discord bot health check.")
+        print("Skipping startup Discord webhook health check.")
 
     if run_once:
         had_error = run_checks(
             finnhub_api_key,
-            discord_bot_token,
-            discord_channel_id,
+            discord_webhook_url,
             sent_alerts,
         )
         return 1 if had_error else 0
@@ -208,8 +201,7 @@ def run() -> int:
     while True:
         run_checks(
             finnhub_api_key,
-            discord_bot_token,
-            discord_channel_id,
+            discord_webhook_url,
             sent_alerts,
         )
         time.sleep(CHECK_INTERVAL_SECONDS)
