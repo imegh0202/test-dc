@@ -5,6 +5,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -68,8 +69,18 @@ def fetch_price(symbol: str, api_key: str) -> float:
     return float(price)
 
 
-def send_discord_message(webhook_url: str, content: str) -> None:
-    payload = json.dumps({"content": content}).encode("utf-8")
+def send_discord_message(
+    webhook_url: str,
+    content: str | None = None,
+    embeds: list[dict] | None = None,
+) -> None:
+    payload_data = {}
+    if content:
+        payload_data["content"] = content
+    if embeds:
+        payload_data["embeds"] = embeds
+
+    payload = json.dumps(payload_data).encode("utf-8")
     request = urllib.request.Request(
         webhook_url,
         data=payload,
@@ -110,6 +121,27 @@ def send_startup_healthcheck(webhook_url: str) -> None:
     )
 
 
+def build_alert_embed(symbol: str, price: float, rule: dict, message: str) -> dict:
+    above = rule.get("above")
+    below = rule.get("below")
+    target = above if above is not None else below
+    condition = "Above or equal" if above is not None else "Below or equal"
+    checked_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+
+    return {
+        "title": "Stock Price Alert",
+        "description": message,
+        "color": 0x2ECC71 if above is not None else 0xE74C3C,
+        "fields": [
+            {"name": "Symbol", "value": symbol, "inline": True},
+            {"name": "Current Price", "value": f"${price:.2f}", "inline": True},
+            {"name": "Condition", "value": condition, "inline": True},
+            {"name": "Target Price", "value": f"${target:.2f}", "inline": True},
+            {"name": "Checked At", "value": checked_at, "inline": True},
+        ],
+    }
+
+
 def check_rule(price: float, rule: dict) -> tuple[bool, str]:
     above = rule.get("above")
     below = rule.get("below")
@@ -140,7 +172,8 @@ def run_checks(
             alert_key = f"{symbol}:{rule.get('above')}:{rule.get('below')}"
 
             if triggered and alert_key not in sent_alerts:
-                send_discord_message(discord_webhook_url, message)
+                embed = build_alert_embed(symbol, price, rule, message)
+                send_discord_message(discord_webhook_url, embeds=[embed])
                 sent_alerts.add(alert_key)
                 print(f"Alert sent: {message}")
             elif not triggered and alert_key in sent_alerts:
