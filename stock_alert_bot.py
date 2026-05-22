@@ -73,7 +73,10 @@ def send_discord_message(webhook_url: str, content: str) -> None:
     request = urllib.request.Request(
         webhook_url,
         data=payload,
-        headers={"Content-Type": "application/json"},
+        headers={
+            "Content-Type": "application/json",
+            "User-Agent": "stock-alert-bot/1.0",
+        },
         method="POST",
     )
 
