@@ -128,13 +128,16 @@ def build_alert_embed(symbol: str, price: float, rule: dict, message: str) -> di
     condition = "Above or equal" if above is not None else "Below or equal"
     checked_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
+    def bright_yellow(value: str) -> str:
+        return f"```ansi\n\u001b[1;93m{value}\u001b[0m\n```"
+
     return {
         "title": "Stock Price Alert",
         "description": message,
-        "color": 0x2ECC71 if above is not None else 0xE74C3C,
+        "color": 0xFFFF00,
         "fields": [
-            {"name": "Symbol", "value": symbol, "inline": True},
-            {"name": "Current Price", "value": f"${price:.2f}", "inline": True},
+            {"name": "Symbol", "value": bright_yellow(symbol), "inline": True},
+            {"name": "Current Price", "value": bright_yellow(f"${price:.2f}"), "inline": True},
             {"name": "Condition", "value": condition, "inline": True},
             {"name": "Target Price", "value": f"${target:.2f}", "inline": True},
             {"name": "Checked At", "value": checked_at, "inline": True},
